@@ -46,6 +46,7 @@ type Project struct {
 	Public               bool       `json:"public,omitempty"`
 	Path                 string     `json:"path,omitempty"`
 	PathWithNamespace    string     `json:"path_with_namespace,omitempty"`
+	NamespaceId          int        `json:"namespace_id,omitempty"`
 	IssuesEnabled        bool       `json:"issues_enabled,omitempty"`
 	MergeRequestsEnabled bool       `json:"merge_requests_enabled,omitempty"`
 	WallEnabled          bool       `json:"wall_enabled,omitempty"`
@@ -122,6 +123,24 @@ func (g *Gitlab) Project(id string) (*Project, error) {
 	}
 
 	return project, err
+}
+
+func (g *Gitlab) CreateProject(project *Project) (*Project, error) {
+
+	url := g.ResourceUrl(project_url, nil)
+
+	encodedRequest, err := json.Marshal(project)
+	if err != nil {
+		return nil, err
+	}
+	var result *Project
+
+	contents, err := g.buildAndExecRequest("POST", url, encodedRequest)
+	if err == nil {
+		err = json.Unmarshal(contents, &result)
+	}
+
+	return result, err
 }
 
 /*

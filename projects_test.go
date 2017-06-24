@@ -1,8 +1,9 @@
 package gogitlab
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestProjects(t *testing.T) {
@@ -23,6 +24,20 @@ func TestProject(t *testing.T) {
 	assert.Equal(t, project.SshRepoUrl, "git@example.com:diaspora/diaspora-project-site.git")
 	assert.Equal(t, project.HttpRepoUrl, "http://example.com/diaspora/diaspora-project-site.git")
 	assert.Equal(t, project.WebUrl, "http://example.com/diaspora/diaspora-project-site")
+	defer ts.Close()
+}
+
+func TestCreateProject(t *testing.T) {
+	ts, gitlab := Stub("stubs/projects/show.json")
+	project := Project{
+		Name:        "app2000",
+		Path:        "app2000",
+		NamespaceId: 40,
+		Description: "Project Description",
+	}
+
+	_, err := gitlab.CreateProject(&project)
+	assert.Equal(t, err, nil)
 	defer ts.Close()
 }
 
