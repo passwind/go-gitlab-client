@@ -3,6 +3,7 @@ package gogitlab
 import (
 	"encoding/json"
 	"strconv"
+	"strings"
 )
 
 const (
@@ -120,6 +121,11 @@ func (g *Gitlab) Project(id string) (*Project, error) {
 	contents, err := g.buildAndExecRequestRaw("GET", url, opaque, nil)
 	if err == nil {
 		err = json.Unmarshal(contents, &project)
+	} else {
+		if strings.Index(err.Error(), "<404>") > -1 {
+			// not found
+			return nil, nil
+		}
 	}
 
 	return project, err
@@ -127,7 +133,7 @@ func (g *Gitlab) Project(id string) (*Project, error) {
 
 func (g *Gitlab) CreateProject(project *Project) (*Project, error) {
 
-	url := g.ResourceUrl(project_url, nil)
+	url := g.ResourceUrl(projects_url, nil)
 
 	encodedRequest, err := json.Marshal(project)
 	if err != nil {
