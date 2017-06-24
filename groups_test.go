@@ -7,7 +7,7 @@ import (
 )
 
 func TestGroupSearch(t *testing.T) {
-	ts, gitlab := Stub("stubs/groups/show.json")
+	ts, gitlab := Stub("stubs/groups/search.json")
 	groups, err := gitlab.GroupSearch("ws")
 
 	assert.Equal(t, err, nil)
@@ -16,7 +16,7 @@ func TestGroupSearch(t *testing.T) {
 }
 
 func TestCreateGroup(t *testing.T) {
-	ts, gitlab := Stub("stubs/groups/show.json")
+	ts, gitlab := Stub("stubs/groups/create.json")
 	group := Group{
 		Name:       "ws8000",
 		Path:       "ws8000",
