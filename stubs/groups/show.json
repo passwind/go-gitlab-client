@@ -1,0 +1,14 @@
+{
+    "id": 37,
+    "name": "ws2000",
+    "path": "ws2000",
+    "description": "",
+    "visibility": "public",
+    "lfs_enabled": true,
+    "avatar_url": null,
+    "web_url": "https://demo.gitlab.com/groups/devtest/appdef/ws2000",
+    "request_access_enabled": true,
+    "full_name": "devtest / appdef / ws2000",
+    "full_path": "devtest/appdef/ws2000",
+    "parent_id": 35
+}
