@@ -110,6 +110,10 @@ func (g *Gitlab) AddGroup(group *Group) (*Group, error) {
 	return result, err
 }
 
+func (g *Gitlab) CreateGroup(group *Group) (*Group, error) {
+	return g.AddGroup(group)
+}
+
 /*
 Updates the project group. Only available to group owners and administrators.
 */
