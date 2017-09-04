@@ -39,15 +39,14 @@ func (g *Gitlab) Groups() ([]*Group, error) {
 }
 
 func (g *Gitlab) groups(search string) ([]*Group, error) {
-	uri := g.ResourceUrl(groups_url, nil)
-
+	var query map[string]string
 	if "" != search {
-		u, _ := url.Parse(uri)
-		q := u.Query()
-		q.Set("search", search)
-		u.RawQuery = q.Encode()
-		uri = u.String()
+		query = map[string]string{
+			"search": search,
+		}
 	}
+
+	uri := g.ResourceUrlWithQuery(groups_url, nil, query)
 
 	var groups []*Group
 	contents, err := g.buildAndExecRequest("GET", uri, nil)

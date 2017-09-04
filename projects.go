@@ -159,11 +159,6 @@ func (g *Gitlab) Project(id string) (*Project, error) {
 	contents, err := g.buildAndExecRequestRaw("GET", url, opaque, nil)
 	if err == nil {
 		err = json.Unmarshal(contents, &project)
-	} else {
-		if strings.Index(err.Error(), "<404>") > -1 {
-			// not found
-			return nil, nil
-		}
 	}
 
 	return project, err
