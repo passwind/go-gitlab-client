@@ -2,30 +2,55 @@ package gogitlab
 
 import (
 	"encoding/json"
+	"strconv"
+	"net/url"
 )
 
 const (
-	groups_url         = "/groups"              // Get a list of groups owned by the authenticated user
-	groups_search_url  = "/groups?search="      // Search for groups by name
-	group_create_url   = "/groups"              // New group [POST]
-	group_url_projects = "/groups/:id/projects" // Get group projects
+	groups_url         = "/groups"              // Get a list of groups. (As user: my groups or all available, as admin: all groups)
+	group_url          = "/groups/:id"          // Get all details of a group
+	group_projects_url = "/groups/:id/projects" // Get a list of projects in this group
+	group_url_members  = "/groups/:id/members"  // Get a list of members in this group
 )
 
+// A gitlab group
 type Group struct {
-	Id          int    `json:"id,omitempty"`
-	Name        string `json:"name,omitempty"`
-	Path        string `json:"path,omitempty"`
-	Description string `json:"description,omitempty"`
-	Visibility  string `json:"description,omitempty"`
-	ParentId    int    `json:"parent_id"`
+	Id                        int        `json:"id,omitempty"`
+	Name                      string     `json:"name,omitempty"`
+	Path                      string     `json:"path,omitempty"`
+	Description               string     `json:"description,omitempty"`
+	Visibility                Visibility `json:"visibility,omitempty"`
+	LfsEnabled                bool       `json:"lfs_enabled,omitempty"`
+	AvatarUrl                 string     `json:"avatar_url,omitempty"`
+	WebURL                    string     `json:"web_url,omitempty"`
+	RequestAccessEnabled      bool       `json:"request_access_enabled,omitempty"`
+	FullName                  string     `json:"full_name,omitempty"`
+	FullPath                  string     `json:"full_path,omitempty"`
+	ParentId                  int        `json:"parent_id,omitempty"`
+	SharedRunnersMinutesLimit int        `json:"shared_runners_minutes_limit,omitempty"`
+	Projects                  []*Project `json:"projects,omitempty"`
 }
 
-func groups(u string, g *Gitlab) ([]*Group, error) {
-	url := g.ResourceUrl(u, nil)
+/*
+Get a list of groups. (As user: my groups or all available, as admin: all groups)
+*/
+func (g *Gitlab) Groups() ([]*Group, error) {
+	return g.groups("")
+}
+
+func (g *Gitlab) groups(search string) ([]*Group, error) {
+	uri := g.ResourceUrl(groups_url, nil)
+
+	if "" != search {
+		u, _ := url.Parse(uri)
+		q := u.Query()
+		q.Set("search", search)
+		u.RawQuery = q.Encode()
+		uri = u.String()
+	}
 
 	var groups []*Group
-
-	contents, err := g.buildAndExecRequest("GET", url, nil)
+	contents, err := g.buildAndExecRequest("GET", uri, nil)
 	if err == nil {
 		err = json.Unmarshal(contents, &groups)
 	}
@@ -34,22 +59,62 @@ func groups(u string, g *Gitlab) ([]*Group, error) {
 }
 
 func (g *Gitlab) GroupSearch(search string) ([]*Group, error) {
-	url := groups_search_url + search
-	return groups(url, g)
+	return g.groups(search)
 }
 
 /*
-Create a group,
-which is owned by the authentication user.
-Namespaced project may be retrieved by specifying the namespace
-and its project name like this:
-
-	{"name":"ws8000","path":"ws8000","parent_id":35,"visibility":"internal"}
-
+Get all details of a group
 */
-func (g *Gitlab) CreateGroup(group *Group) (*Group, error) {
+func (g *Gitlab) Group(id string) (*Group, error) {
+	url, opaque := g.ResourceUrlRaw(group_url, map[string]string{":id": id})
 
-	url := g.ResourceUrl(group_create_url, nil)
+	var group *Group
+
+	contents, err := g.buildAndExecRequestRaw("GET", url, opaque, nil)
+	if err == nil {
+		err = json.Unmarshal(contents, &group)
+	}
+
+	return group, err
+}
+
+/*
+Creates a new project group. Available only for users who can create groups.
+
+Required fields on group:
+	* Name
+	* Path
+
+Optional fields on group:
+	* Description
+	* Visibility
+	* LfsEnabled
+	* RequestAccessEnabled
+	* ParentId
+
+Other fields on group are not supported by the GitLab API
+*/
+func (g *Gitlab) AddGroup(group *Group) (*Group, error) {
+	url := g.ResourceUrl(groups_url, nil)
+
+	encodedRequest, err := json.Marshal(group)
+	if err != nil {
+		return nil, err
+	}
+	var result *Group
+	contents, err := g.buildAndExecRequest("POST", url, encodedRequest)
+	if err == nil {
+		err = json.Unmarshal(contents, &result)
+	}
+
+	return result, err
+}
+
+/*
+Updates the project group. Only available to group owners and administrators.
+*/
+func (g *Gitlab) UpdateGroup(id string, group *Group) (*Group, error) {
+	url := g.ResourceUrl(group_url, map[string]string{":id": id})
 
 	encodedRequest, err := json.Marshal(group)
 	if err != nil {
@@ -57,10 +122,57 @@ func (g *Gitlab) CreateGroup(group *Group) (*Group, error) {
 	}
 	var result *Group
 
-	contents, err := g.buildAndExecRequest("POST", url, encodedRequest)
+	contents, err := g.buildAndExecRequest("PUT", url, encodedRequest)
 	if err == nil {
 		err = json.Unmarshal(contents, &result)
 	}
 
 	return result, err
+}
+
+/*
+Remove a group.
+*/
+func (g *Gitlab) RemoveGroup(id string) (bool, error) {
+	url, opaque := g.ResourceUrlRaw(group_url, map[string]string{":id": id})
+	result := false
+
+	contents, err := g.buildAndExecRequestRaw("DELETE", url, opaque, nil)
+	if err == nil {
+		result, err = strconv.ParseBool(string(contents[:]))
+	}
+
+	return result, err
+}
+
+/*
+Get a list of projects in this group.
+*/
+func (g *Gitlab) GroupProjects(id string) ([]*Project, error) {
+	url, opaque := g.ResourceUrlRaw(group_projects_url, map[string]string{":id": id})
+
+	var projects []*Project
+
+	contents, err := g.buildAndExecRequestRaw("GET", url, opaque, nil)
+	if err == nil {
+		err = json.Unmarshal(contents, &projects)
+	}
+
+	return projects, err
+}
+
+/*
+Gets a list of group or project members viewable by the authenticated user
+*/
+func (g *Gitlab) GroupMembers(id string) ([]*Member, error) {
+	url, opaque := g.ResourceUrlRaw(group_url_members, map[string]string{":id": id})
+
+	var members []*Member
+
+	contents, err := g.buildAndExecRequestRaw("GET", url, opaque, nil)
+	if err == nil {
+		err = json.Unmarshal(contents, &members)
+	}
+
+	return members, err
 }
