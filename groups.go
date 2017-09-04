@@ -3,7 +3,6 @@ package gogitlab
 import (
 	"encoding/json"
 	"strconv"
-	"net/url"
 )
 
 const (

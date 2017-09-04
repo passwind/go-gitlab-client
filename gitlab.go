@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"errors"
 )
 
 const (
@@ -27,10 +26,6 @@ type Gitlab struct {
 
 const (
 	dateLayout = "2006-01-02T15:04:05-07:00"
-)
-
-var (
-	NotFoundErr = errors.New("Resource not found")
 )
 
 var (
@@ -85,6 +80,20 @@ func (g *Gitlab) ResourceUrlWithQuery(url2 string, params, query map[string]stri
 	return uri
 }
 
+type respErr struct {
+	status int
+	msg string
+}
+
+func (e *respErr) Error() string {
+	return fmt.Sprintf("Gitlab response error: (%d)%s", e.status, e.msg)
+}
+
+func IsNotFoundErr(err error) bool {
+	re, ok := err.(*respErr)
+	return ok && re.status == http.StatusNotFound
+}
+
 func (g *Gitlab) execRequest(method, url string, body []byte) (*http.Response, error) {
 	var req *http.Request
 	var err error
@@ -110,11 +119,9 @@ func (g *Gitlab) execRequest(method, url string, body []byte) (*http.Response, e
 	}
 
 	if resp.StatusCode >= http.StatusBadRequest {
-		resp.Body.Close()
-		if resp.StatusCode == http.StatusNotFound {
-			return nil, NotFoundErr
-		}
-		return nil, fmt.Errorf("*Gitlab.buildAndExecRequest failed: <%d> %s", resp.StatusCode, req.URL)
+		defer resp.Body.Close()
+		msg, _ := ioutil.ReadAll(resp.Body)
+		return nil, &respErr{resp.StatusCode, string(msg)}
 	}
 
 	return resp, err
@@ -191,10 +198,8 @@ func (g *Gitlab) buildAndExecRequestRaw(method, url, opaque string, body []byte)
 	}
 
 	if resp.StatusCode >= 400 {
-		if resp.StatusCode == http.StatusNotFound {
-			return nil, NotFoundErr
-		}
-		err = fmt.Errorf("*Gitlab.buildAndExecRequestRaw failed: <%d> %s", resp.StatusCode, req.URL)
+		msg, _ := ioutil.ReadAll(resp.Body)
+		return nil, &respErr{resp.StatusCode, string(msg)}
 	}
 
 	return contents, err
