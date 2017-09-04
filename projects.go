@@ -108,6 +108,7 @@ One (or more) of the following fields are required:
 	* Name
 	* Path
 */
+
 func (g *Gitlab) AddProject(project *Project) (*Project, error) {
 	url := g.ResourceUrl(projects_url, nil)
 
@@ -169,21 +170,7 @@ func (g *Gitlab) Project(id string) (*Project, error) {
 }
 
 func (g *Gitlab) CreateProject(project *Project) (*Project, error) {
-
-	url := g.ResourceUrl(projects_url, nil)
-
-	encodedRequest, err := json.Marshal(project)
-	if err != nil {
-		return nil, err
-	}
-	var result *Project
-
-	contents, err := g.buildAndExecRequest("POST", url, encodedRequest)
-	if err == nil {
-		err = json.Unmarshal(contents, &result)
-	}
-
-	return result, err
+	return g.AddProject(project)
 }
 
 /*
