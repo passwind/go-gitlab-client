@@ -37,6 +37,19 @@ type Namespace struct {
 	Updated_At  string
 }
 
+type Visibility string
+
+const (
+	// VisibilityPrivate indicates project access must be granted explicitly for each user.
+	VisibilityPrivate = Visibility("private")
+
+	// VisibilityInternal indicates the project can be cloned by any logged in user.
+	VisibilityInternal = Visibility("internal")
+
+	// VisibilityPublic indicates the project can be cloned without any authentication.
+	VisibilityPublic = Visibility("public")
+)
+
 // A gitlab project
 type Project struct {
 	Id                   int        `json:"id,omitempty"`
@@ -47,13 +60,14 @@ type Project struct {
 	Public               bool       `json:"public,omitempty"`
 	Path                 string     `json:"path,omitempty"`
 	PathWithNamespace    string     `json:"path_with_namespace,omitempty"`
-	NamespaceId          int        `json:"namespace_id,omitempty"`
+	Visibility           Visibility `json:"visibility,omitempty"`
 	IssuesEnabled        bool       `json:"issues_enabled,omitempty"`
 	MergeRequestsEnabled bool       `json:"merge_requests_enabled,omitempty"`
 	WallEnabled          bool       `json:"wall_enabled,omitempty"`
 	WikiEnabled          bool       `json:"wiki_enabled,omitempty"`
 	CreatedAtRaw         string     `json:"created_at,omitempty"`
 	Namespace            *Namespace `json:"namespace,omitempty"`
+	NamespaceId          int        `json:"namespace_id,omitempty"` // Only used for create
 	SshRepoUrl           string     `json:"ssh_url_to_repo"`
 	HttpRepoUrl          string     `json:"http_url_to_repo"`
 	WebUrl               string     `json:"web_url"`
@@ -85,6 +99,30 @@ Get a list of all GitLab projects (admin only).
 */
 func (g *Gitlab) AllProjects() ([]*Project, error) {
 	return projects(projects_all, g)
+}
+
+/*
+Creates a new project owned by the authenticated user.
+
+One (or more) of the following fields are required:
+	* Name
+	* Path
+*/
+
+func (g *Gitlab) AddProject(project *Project) (*Project, error) {
+	url := g.ResourceUrl(projects_url, nil)
+
+	encodedRequest, err := json.Marshal(project)
+	if err != nil {
+		return nil, err
+	}
+	var result *Project
+	contents, err := g.buildAndExecRequest("POST", url, encodedRequest)
+	if err == nil {
+		err = json.Unmarshal(contents, &result)
+	}
+
+	return result, err
 }
 
 /*
@@ -132,21 +170,7 @@ func (g *Gitlab) Project(id string) (*Project, error) {
 }
 
 func (g *Gitlab) CreateProject(project *Project) (*Project, error) {
-
-	url := g.ResourceUrl(projects_url, nil)
-
-	encodedRequest, err := json.Marshal(project)
-	if err != nil {
-		return nil, err
-	}
-	var result *Project
-
-	contents, err := g.buildAndExecRequest("POST", url, encodedRequest)
-	if err == nil {
-		err = json.Unmarshal(contents, &result)
-	}
-
-	return result, err
+	return g.AddProject(project)
 }
 
 /*
