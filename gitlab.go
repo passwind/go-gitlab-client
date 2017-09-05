@@ -68,6 +68,32 @@ func (g *Gitlab) ResourceUrl(url string, params map[string]string) string {
 	return url
 }
 
+func (g *Gitlab) ResourceUrlWithQuery(url2 string, params, query map[string]string) string {
+	uri := g.ResourceUrl(url2, params)
+	for k, v := range query {
+		u, _ := url.Parse(uri)
+		q := u.Query()
+		q.Set(k, v)
+		u.RawQuery = q.Encode()
+		uri = u.String()
+	}
+	return uri
+}
+
+type respErr struct {
+	status int
+	msg string
+}
+
+func (e *respErr) Error() string {
+	return fmt.Sprintf("Gitlab response error: (%d)%s", e.status, e.msg)
+}
+
+func IsNotFoundErr(err error) bool {
+	re, ok := err.(*respErr)
+	return ok && re.status == http.StatusNotFound
+}
+
 func (g *Gitlab) execRequest(method, url string, body []byte) (*http.Response, error) {
 	var req *http.Request
 	var err error
@@ -93,7 +119,9 @@ func (g *Gitlab) execRequest(method, url string, body []byte) (*http.Response, e
 	}
 
 	if resp.StatusCode >= http.StatusBadRequest {
-		err = fmt.Errorf("*Gitlab.buildAndExecRequest failed: <%d> %s", resp.StatusCode, req.URL)
+		defer resp.Body.Close()
+		msg, _ := ioutil.ReadAll(resp.Body)
+		return nil, &respErr{resp.StatusCode, string(msg)}
 	}
 
 	return resp, err
@@ -170,7 +198,8 @@ func (g *Gitlab) buildAndExecRequestRaw(method, url, opaque string, body []byte)
 	}
 
 	if resp.StatusCode >= 400 {
-		err = fmt.Errorf("*Gitlab.buildAndExecRequestRaw failed: <%d> %s", resp.StatusCode, req.URL)
+		msg, _ := ioutil.ReadAll(resp.Body)
+		return nil, &respErr{resp.StatusCode, string(msg)}
 	}
 
 	return contents, err
