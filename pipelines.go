@@ -64,7 +64,7 @@ func (g *Gitlab) ListPipelines(pid string, opts *ListPipelinesOpts) ([]*Pipeline
 	}
 
 	data, err := g.buildAndExecRequest(
-		http.MethodPost,
+		http.MethodGet,
 		g.ResourceUrlWithQuery(
 			pipelinesUrl,
 			map[string]string{":id": pid},
