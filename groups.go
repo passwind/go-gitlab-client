@@ -3,6 +3,8 @@ package gogitlab
 import (
 	"encoding/json"
 	"strconv"
+	"net/http"
+	"fmt"
 )
 
 const (
@@ -10,6 +12,7 @@ const (
 	group_url          = "/groups/:id"          // Get all details of a group
 	group_projects_url = "/groups/:id/projects" // Get a list of projects in this group
 	group_url_members  = "/groups/:id/members"  // Get a list of members in this group
+	group_project_url = "/groups/:id/projects/:pid"
 )
 
 // A gitlab group
@@ -177,4 +180,23 @@ func (g *Gitlab) GroupMembers(id string) ([]*Member, error) {
 	}
 
 	return members, err
+}
+
+/*
+Transfer the specified project into the specified group
+*/
+func (g *Gitlab) TransferProject(id, projectId string) error {
+	_, err := g.buildAndExecRequest(
+		http.MethodPost,
+		g.ResourceUrl(
+			group_project_url,
+			map[string]string{":id": id, ":pid": projectId},
+		),
+		nil,
+	)
+	if nil != err {
+		err = fmt.Errorf("Request transfer project API error: %v", err)
+	}
+
+	return err
 }
