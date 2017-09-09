@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"net/http"
 	"path"
-	"time"
 	"strconv"
+	"time"
 )
 
 var (
-	pipelineUrl = path.Join(project_url, "pipeline")
+	pipelineUrl  = path.Join(project_url, "pipeline")
 	pipelinesUrl = path.Join(project_url, "pipelines")
 )
 
@@ -84,6 +84,27 @@ func (g *Gitlab) ListPipelines(pid string, opts *ListPipelinesOpts) ([]*Pipeline
 	return ps, nil
 }
 
+func (g *Gitlab) GetPipeline(projId string, pipelineId int) (*Pipeline, error) {
+	data, err := g.buildAndExecRequest(
+		http.MethodGet,
+		g.ResourceUrl(
+			path.Join(pipelinesUrl, strconv.Itoa(pipelineId)),
+			map[string]string{":id": projId},
+		),
+		nil,
+	)
+	if nil != err {
+		return nil, fmt.Errorf("Request get pipeline API error: %v", err)
+	}
+
+	var p *Pipeline
+	if err := json.Unmarshal(data, &p); nil != err {
+		return nil, fmt.Errorf("Decode response error: %v", err)
+	}
+
+	return p, nil
+}
+
 type ListPipelinesOpts struct {
 	Scope      string
 	Status     string
@@ -97,7 +118,7 @@ type ListPipelinesOpts struct {
 }
 
 type Pagination struct {
-	Page int
+	Page    int
 	PerPage int
 }
 
