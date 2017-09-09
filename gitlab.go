@@ -60,16 +60,26 @@ func (g *Gitlab) ResourceUrl(url string, params map[string]string) string {
 	return g.BaseUrl + g.ApiPath + url
 }
 
-func (g *Gitlab) ResourceUrlWithQuery(url2 string, params, query map[string]string) string {
-	uri := g.ResourceUrl(url2, params)
-	for k, v := range query {
-		u, _ := url.Parse(uri)
-		q := u.Query()
-		q.Set(k, v)
-		u.RawQuery = q.Encode()
-		uri = u.String()
+func (g *Gitlab) ResourceUrlWithQueryValues(url2 string, params map[string]string, vals url.Values) string {
+	u, _ := url.Parse(g.ResourceUrl(url2, params))
+	q := u.Query()
+	for k, vs := range vals {
+		for _, v := range vs {
+			q.Add(k, v)
+		}
 	}
-	return uri
+	u.RawQuery = q.Encode()
+	return u.String()
+}
+
+func (g *Gitlab) ResourceUrlWithQuery(url2 string, params, query map[string]string) string {
+	u, _ := url.Parse(g.ResourceUrl(url2, params))
+	q := u.Query()
+	for k, v := range query {
+		q.Set(k, v)
+	}
+	u.RawQuery = q.Encode()
+	return u.String()
 }
 
 type respErr struct {

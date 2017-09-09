@@ -7,18 +7,17 @@ import (
 	"path"
 	"strconv"
 	"time"
+	"net/url"
 )
 
 var (
-	pipelineUrl  = path.Join(project_url, "pipeline")
-	pipelinesUrl = path.Join(project_url, "pipelines")
+	pipelineCreationUrl = path.Join(project_url, "pipeline")
+	pipelinesUrl        = path.Join(project_url, "pipelines")
+	pipelineUrl			= path.Join(project_url, "pipelines", ":pipeline_id")
 )
 
 type Pipeline struct {
-	Id          int        `json:"id"`
-	SHA         string     `json:"sha"`
-	Ref         string     `json:"ref"`
-	Status      string     `json:"status"`
+	PipelineBrief
 	BeforeSHA   string     `json:"before_sha"`
 	Tag         bool       `json:"tag"`
 	User        User       `json:"user"`
@@ -28,6 +27,13 @@ type Pipeline struct {
 	FinishedAt  *time.Time `json:"finished_at"`
 	CommittedAt *time.Time `json:"committed_at"`
 	Duration    *int64     `json:"duration"`
+}
+
+type PipelineBrief struct {
+	Id          int        `json:"id"`
+	SHA         string     `json:"sha"`
+	Ref         string     `json:"ref"`
+	Status      string     `json:"status"`
 }
 
 func (p *Pipeline) Finished() bool {
@@ -40,7 +46,7 @@ func (g *Gitlab) CreatePipeline(pid, ref string) (*Pipeline, error) {
 	data, err := g.buildAndExecRequest(
 		http.MethodPost,
 		g.ResourceUrlWithQuery(
-			pipelineUrl,
+			pipelineCreationUrl,
 			map[string]string{":id": pid},
 			map[string]string{"ref": ref},
 		),
@@ -57,7 +63,7 @@ func (g *Gitlab) CreatePipeline(pid, ref string) (*Pipeline, error) {
 	return &pl, nil
 }
 
-func (g *Gitlab) ListPipelines(pid string, opts *ListPipelinesOpts) ([]*Pipeline, error) {
+func (g *Gitlab) ListPipelines(pid string, opts *ListPipelinesOpts) ([]*PipelineBrief, error) {
 	query, err := opts.toQuery()
 	if nil != err {
 		return nil, fmt.Errorf("Check list pipelines parameters error: %v", err)
@@ -76,7 +82,7 @@ func (g *Gitlab) ListPipelines(pid string, opts *ListPipelinesOpts) ([]*Pipeline
 		return nil, fmt.Errorf("Request list pipelines API error: %v", err)
 	}
 
-	var ps []*Pipeline
+	var ps []*PipelineBrief
 	if err := json.Unmarshal(data, &ps); nil != err {
 		return nil, fmt.Errorf("Decode response error: %v", err)
 	}
@@ -88,8 +94,11 @@ func (g *Gitlab) GetPipeline(projId string, pipelineId int) (*Pipeline, error) {
 	data, err := g.buildAndExecRequest(
 		http.MethodGet,
 		g.ResourceUrl(
-			path.Join(pipelinesUrl, strconv.Itoa(pipelineId)),
-			map[string]string{":id": projId},
+			pipelineUrl,
+			map[string]string{
+				":id": projId,
+				":pipeline_id": strconv.Itoa(pipelineId),
+			},
 		),
 		nil,
 	)
@@ -161,7 +170,7 @@ func (opts *ListPipelinesOpts) toQuery() (map[string]string, error) {
 
 	query := make(map[string]string)
 	if "" != opts.Scope {
-		query["scope"] = opts.Scope
+		query["scopes"] = opts.Scope
 	}
 	if "" != opts.Status {
 		query["status"] = opts.Status
@@ -184,12 +193,7 @@ func (opts *ListPipelinesOpts) toQuery() (map[string]string, error) {
 	if opts.SortAsc {
 		query["sort"] = "asc"
 	}
-	if opts.Page > 0 {
-		query["page"] = strconv.Itoa(opts.Page)
-	}
-	if opts.PerPage > 0 {
-		query["per_page"] = strconv.Itoa(opts.PerPage)
-	}
+	opts.Pagination.toQuery(query)
 	return query, nil
 }
 
@@ -199,7 +203,7 @@ func (opts *ListPipelinesOpts) check() error {
 	}
 
 	if "" != opts.Scope && !validPipelineScope[opts.Scope] {
-		return fmt.Errorf("Invalid scope '%s'", opts.Scope)
+		return fmt.Errorf("Invalid scopes '%s'", opts.Scope)
 	}
 
 	if "" != opts.Status && !validPipelineStatus[opts.Status] {
@@ -210,13 +214,35 @@ func (opts *ListPipelinesOpts) check() error {
 		return fmt.Errorf("Invalid order_by '%s'", opts.OrderBy)
 	}
 
-	if opts.Page < 0 {
-		return fmt.Errorf("Invalid page '%d'", opts.Page)
+	return opts.Pagination.check()
+}
+
+func (p Pagination) check() error {
+	if p.Page < 0 {
+		return fmt.Errorf("Invalid page '%d'", p.Page)
 	}
 
-	if opts.PerPage < 0 || opts.PerPage > 100 {
-		return fmt.Errorf("Invalid per_page '%d'", opts.PerPage)
+	if p.PerPage < 0 || p.PerPage > 100 {
+		return fmt.Errorf("Invalid per_page '%d'", p.PerPage)
 	}
 
 	return nil
+}
+
+func (p Pagination) toQuery(query map[string]string) {
+	if p.Page > 0 {
+		query["page"] = strconv.Itoa(p.Page)
+	}
+	if p.PerPage > 0 {
+		query["per_page"] = strconv.Itoa(p.PerPage)
+	}
+}
+
+func (p Pagination) toQueryValues(vals url.Values) {
+	if p.Page > 0 {
+		vals.Set("page", strconv.Itoa(p.Page))
+	}
+	if p.PerPage > 0 {
+		vals.Set("per_page", strconv.Itoa(p.PerPage))
+	}
 }
