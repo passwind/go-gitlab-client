@@ -36,7 +36,7 @@ type PipelineBrief struct {
 	Status      string     `json:"status"`
 }
 
-func (p *Pipeline) Finished() bool {
+func (p *PipelineBrief) Finished() bool {
 	return p.Status != "" && p.Status != "running" && p.Status != "pending"
 }
 
