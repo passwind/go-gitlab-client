@@ -14,6 +14,7 @@ var (
 	pipelineCreationUrl = path.Join(project_url, "pipeline")
 	pipelinesUrl        = path.Join(project_url, "pipelines")
 	pipelineUrl			= path.Join(project_url, "pipelines", ":pipeline_id")
+	pipelineCancelUrl	= path.Join(project_url, "pipelines", ":pipeline_id", "cancel")
 )
 
 type Pipeline struct {
@@ -56,6 +57,30 @@ func (g *Gitlab) CreatePipeline(pid, ref string) (*Pipeline, error) {
 		return nil, fmt.Errorf("Request create pipeline API error: %v", err)
 	}
 
+	if err := json.Unmarshal(data, &pl); nil != err {
+		return nil, fmt.Errorf("Decode response error: %v", err)
+	}
+
+	return &pl, nil
+}
+
+func (g *Gitlab) CancelPipeline(pid string, pipelineId int) (*Pipeline, error) {
+	data, err := g.buildAndExecRequest(
+		http.MethodPost,
+		g.ResourceUrl(
+			pipelineCancelUrl,
+			map[string]string{
+				":id": pid,
+				":pipeline_id": strconv.Itoa(pipelineId),
+			},
+		),
+		nil,
+	)
+	if nil != err {
+		return nil, fmt.Errorf("Request cancel pipeline API error: %v", err)
+	}
+
+	var pl Pipeline
 	if err := json.Unmarshal(data, &pl); nil != err {
 		return nil, fmt.Errorf("Decode response error: %v", err)
 	}
