@@ -202,8 +202,7 @@ func (g *Gitlab) buildAndExecRequestRaw(method, url, opaque string, body []byte)
 	}
 
 	if resp.StatusCode >= 400 {
-		msg, _ := ioutil.ReadAll(resp.Body)
-		return nil, &respErr{resp.StatusCode, string(msg)}
+		return nil, &respErr{resp.StatusCode, string(contents)}
 	}
 
 	return contents, err
