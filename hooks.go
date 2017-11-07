@@ -3,6 +3,7 @@ package gogitlab
 import (
 	"encoding/json"
 	"net/url"
+	"fmt"
 )
 
 const (
@@ -94,13 +95,20 @@ func DefaultHookFlags() HookFlags {
 	}
 }
 
-func (g *Gitlab) AddProjectHookWithFlags(id, hook_url string, hookFlags HookFlags) error {
+func (g *Gitlab) AddProjectHookWithFlags(id, hook_url string, hookFlags HookFlags) (*Hook, error) {
 	url, opaque := g.ResourceUrlRaw(project_url_hooks, map[string]string{":id": id})
 	var err error
 	body := buildHookQueryWithFlags(hook_url, hookFlags)
-	_, err = g.buildAndExecRequestRaw("POST", url, opaque, body)
+	data, err := g.buildAndExecRequestRaw("POST", url, opaque, body)
+	if nil != err {
+		return nil, fmt.Errorf("Request create webhook API error: %v", err)
+	}
 
-	return err
+	var h Hook
+	if err := json.Unmarshal(data, &h); nil != err {
+		return nil, fmt.Errorf("Decode response error: %v", err)
+	}
+	return &h, nil
 }
 
 /*
