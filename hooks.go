@@ -3,6 +3,7 @@ package gogitlab
 import (
 	"encoding/json"
 	"net/url"
+	"fmt"
 )
 
 const (
@@ -14,6 +15,7 @@ type Hook struct {
 	Id           int    `json:"id,omitempty"`
 	Url          string `json:"url,omitempty"`
 	CreatedAtRaw string `json:"created_at,omitempty"`
+	HookFlags
 }
 
 /*
@@ -72,6 +74,41 @@ func (g *Gitlab) ProjectHook(id, hook_id string) (*Hook, error) {
 	err = json.Unmarshal(contents, &hook)
 
 	return hook, err
+}
+
+type HookFlags struct {
+	PushEvents            bool `json:"push_events"`
+	IssuesEvents          bool `json:"issues_events"`
+	MergeRequestsEvents   bool `json:"merge_requests_events"`
+	TagPushEvents         bool `json:"tag_push_events"`
+	NoteEvents            bool `json:"note_events"`
+	JobEvents             bool `json:"job_events"`
+	PipelineEvents        bool `json:"pipeline_events"`
+	WikiEvents            bool `json:"wiki_events"`
+	EnableSSLVerification bool `json:"enable_ssl_verification"`
+}
+
+func DefaultHookFlags() HookFlags {
+	return HookFlags{
+		PushEvents: true,
+		EnableSSLVerification: true,
+	}
+}
+
+func (g *Gitlab) AddProjectHookWithFlags(id, hook_url string, hookFlags HookFlags) (*Hook, error) {
+	url, opaque := g.ResourceUrlRaw(project_url_hooks, map[string]string{":id": id})
+	var err error
+	body := buildHookQueryWithFlags(hook_url, hookFlags)
+	data, err := g.buildAndExecRequestRaw("POST", url, opaque, body)
+	if nil != err {
+		return nil, fmt.Errorf("Request create webhook API error: %v", err)
+	}
+
+	var h Hook
+	if err := json.Unmarshal(data, &h); nil != err {
+		return nil, fmt.Errorf("Decode response error: %v", err)
+	}
+	return &h, nil
 }
 
 /*
@@ -180,4 +217,13 @@ func buildHookQuery(hook_url string, push_events, issues_events, merge_requests_
 	}
 
 	return v.Encode()
+}
+
+func buildHookQueryWithFlags(hook_url string, hookFlags HookFlags) []byte {
+	b, _ := json.Marshal(Hook{
+		Url: hook_url,
+		HookFlags: hookFlags,
+	})
+
+	return b
 }
